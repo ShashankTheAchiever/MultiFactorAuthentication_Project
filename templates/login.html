@@ -141,6 +141,7 @@
             const suspensionTimer = document.getElementById('suspension-timer');
             const timeRemainingElement = document.getElementById('time-remaining');
             const form = document.querySelector('form');
+            const flashMessage = document.getElementById('flash-message');
             if (suspensionTimer && timeRemainingElement) {
                 let remainingTime = parseInt(timeRemainingElement.textContent);
                 form.style.pointerEvents = 'none'; // Disable form during suspension
@@ -158,7 +159,9 @@
                         suspensionTimer.style.display = 'none';
                         form.style.pointerEvents = 'auto'; // Re-enable form
                         form.style.opacity = '1';
-                        flashMessage.style.display = 'none'; // Hide flash message
+                        if (flashMessage) {
+                            flashMessage.style.display = 'none'; // Hide flash message
+                        }
                     }
                 }, 1000);
             }

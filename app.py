@@ -460,11 +460,11 @@ def login():
                 # Increment failed attempts
                 user.failed_login_attempts += 1
                 if user.failed_login_attempts >= 3:
-                    # Suspend account for 24 hours
-                    user.suspension_timestamp = datetime.utcnow() + timedelta(hours=24)
+                    # Suspend account for 3 hours (changed from 24 hours)
+                    user.suspension_timestamp = datetime.utcnow() + timedelta(hours=3)
                     user.failed_login_attempts = 0  # Reset attempts after suspension
                     db.session.commit()
-                    flash('Account suspended for 24 hours due to 3 failed login attempts.', 'danger')
+                    flash('Account suspended for 3 hours due to 3 failed login attempts.', 'danger')
                 else:
                     remaining_attempts = 3 - user.failed_login_attempts
                     flash(f'Invalid credentials. You have {remaining_attempts} attempts left.', 'danger')
