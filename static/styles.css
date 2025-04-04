@@ -1,0 +1,174 @@
+/* General Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* Container with Subtle Glassmorphism */
+.container {
+    width: 100%;
+    max-width: 450px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2));
+    backdrop-filter: blur(8px);
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.container:hover {
+    transform: translateY(-3px);
+}
+
+/* Headings */
+h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+}
+
+h2::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 3px;
+    background: #00c4b4;
+    border-radius: 2px;
+}
+
+/* Paragraphs */
+p {
+    font-size: 1rem;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+    line-height: 1.5;
+}
+
+/* QR Code Image */
+img {
+    border-radius: 10px;
+    margin: 20px 0;
+    border: 1px solid #00c4b4;
+    transition: transform 0.3s ease;
+}
+
+img:hover {
+    transform: scale(1.03);
+}
+
+/* Input Fields */
+input {
+    width: 100%;
+    padding: 12px 15px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    outline: none;
+    transition: border 0.3s ease, background 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+input::placeholder {
+    color: #a0a0a0;
+}
+
+input:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid #00c4b4;
+}
+
+/* Buttons */
+button {
+    background: #00c4b4;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+button:hover {
+    background: #00a69a;
+    transform: translateY(-2px);
+}
+
+/* Links */
+a {
+    color: #00c4b4;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #ff6f61;
+    text-decoration: underline;
+}
+
+/* Flashed Messages */
+.danger {
+    color: #ff6f61;
+    background: rgba(255, 107, 97, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+}
+
+.success {
+    color: #00c4b4;
+    background: rgba(0, 196, 180, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 500px) {
+    .container {
+        width: 90%;
+        padding: 20px;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    input, button {
+        font-size: 0.9rem;
+    }
+
+    img {
+        width: 180px;
+        height: 180px;
+    }
+}

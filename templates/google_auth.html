@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Authenticator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h2>Google Authenticator Setup</h2>
+        <p>Scan the QR Code with Google Authenticator App:</p>
+        <img src="{{ qr_code }}" alt="QR Code" style="width: 200px; height: 200px;">
+        <form action="/google_auth" method="POST">
+            <input type="text" name="otp" placeholder="Enter Google Authenticator Code" required>
+            <button type="submit">Verify</button>
+        </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Authenticator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Google Authenticator Setup</h2>
+        <p>Scan the QR Code with Google Authenticator App:</p>
+        <img src="{{ qr_code }}" alt="QR Code" style="width: 200px; height: 200px;">
+        <form action="/google_auth" method="POST">
+            <input type="text" name="otp" placeholder="Enter Google Authenticator Code" required>
+            <button type="submit">Verify</button>
+        </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html> -->
