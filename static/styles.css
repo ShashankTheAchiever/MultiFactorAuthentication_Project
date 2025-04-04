@@ -172,3 +172,39 @@ a:hover {
         height: 180px;
     }
 }
+
+/* For both options: General button styling */
+button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Ensure flash message is visible initially */
+#flash-message {
+    display: block;
+    margin-top: 10px;
+}
+
+/* Suspension Timer */
+#suspension-timer {
+    color: #ff6f61;
+    background: rgba(255, 107, 97, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Ensure flash message is visible initially */
+#flash-message {
+    display: block;
+    margin-top: 10px;
+}
+
+/* Disabled form styling */
+form:disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}

@@ -3,18 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTP Verification</title>
+    <title>Verify OTP</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div id="particles-js"></div>
+
     <div class="container">
-        <h2>OTP Verification</h2>
-        <p>An OTP has been sent to your email and mobile number.</p>
+        <h2>Verify OTP</h2>
+        <p>Please enter the OTP sent to your email and WhatsApp.</p>
         <form action="/verify_otp" method="POST">
-            <input type="text" name="otp_email" placeholder="Enter OTP sent on Your Mail" required>
-            <input type="text" name="otp_whatsapp" placeholder="Enter OTP sent on Your WhatsApp Mobile Number" required>
-            <button type="submit">Verify OTP</button>
+            <input type="text" name="otp_email" placeholder="Email OTP" required>
+            <input type="text" name="otp_whatsapp" placeholder="WhatsApp OTP" required>
+            <button type="submit">Verify</button>
+            <button type="button" id="resend-btn" disabled>Resend OTP</button>
         </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}" id="flash-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        particlesJS("particles-js", {
+            "particles": {
+                "number": {
+                    "value": 80,
+                    "density": {
+                        "enable": true,
+                        "value_area": 800
+                    }
+                },
+                "color": {
+                    "value": "#00c4b4"
+                },
+                "shape": {
+                    "type": "circle",
+                    "stroke": {
+                        "width": 0,
+                        "color": "#000000"
+                    }
+                },
+                "opacity": {
+                    "value": 0.5,
+                    "random": true,
+                    "anim": {
+                        "enable": true,
+                        "speed": 1,
+                        "opacity_min": 0.1,
+                        "sync": false
+                    }
+                },
+                "size": {
+                    "value": 3,
+                    "random": true,
+                    "anim": {
+                        "enable": false,
+                        "speed": 40,
+                        "size_min": 0.1,
+                        "sync": false
+                    }
+                },
+                "line_linked": {
+                    "enable": true,
+                    "distance": 150,
+                    "color": "#00c4b4",
+                    "opacity": 0.4,
+                    "width": 1
+                },
+                "move": {
+                    "enable": true,
+                    "speed": 2,
+                    "direction": "none",
+                    "random": false,
+                    "straight": false,
+                    "out_mode": "out",
+                    "bounce": false,
+                    "attract": {
+                        "enable": false,
+                        "rotateX": 600,
+                        "rotateY": 1200
+                    }
+                }
+            },
+            "interactivity": {
+                "detect_on": "canvas",
+                "events": {
+                    "onhover": {
+                        "enable": true,
+                        "mode": "repulse"
+                    },
+                    "onclick": {
+                        "enable": true,
+                        "mode": "push"
+                    },
+                    "resize": true
+                },
+                "modes": {
+                    "grab": {
+                        "distance": 400,
+                        "line_linked": {
+                            "opacity": 1
+                        }
+                    },
+                    "bubble": {
+                        "distance": 400,
+                        "size": 40,
+                        "duration": 2,
+                        "opacity": 8,
+                        "speed": 3
+                    },
+                    "repulse": {
+                        "distance": 100,
+                        "duration": 0.4
+                    },
+                    "push": {
+                        "particles_nb": 4
+                    },
+                    "remove": {
+                        "particles_nb": 2
+                    }
+                }
+            },
+            "retina_detect": true
+        });
+
+        // Client-side timer for resend OTP
+        document.addEventListener('DOMContentLoaded', function() {
+            const resendBtn = document.getElementById('resend-btn');
+            const flashMessage = document.getElementById('flash-message');
+            let remainingTime = 30; // 30-second cooldown
+
+            // Check if there’s a cooldown message from the server
+            if (flashMessage && flashMessage.classList.contains('danger')) {
+                const match = flashMessage.textContent.match(/Please wait (\d+) seconds/);
+                if (match) {
+                    remainingTime = parseInt(match[1]);
+                }
+            }
+
+            // Start the timer
+            const timer = setInterval(() => {
+                if (remainingTime > 0) {
+                    remainingTime--;
+                    resendBtn.textContent = `Resend OTP (${remainingTime}s)`;
+                } else {
+                    clearInterval(timer);
+                    resendBtn.textContent = 'Resend OTP';
+                    resendBtn.disabled = false;
+                    flashMessage.style.display = 'none'; // Hide the flash message when timer ends
+                }
+            }, 1000);
+
+            // Handle resend button click
+            resendBtn.addEventListener('click', function() {
+                if (!resendBtn.disabled) {
+                    window.location.href = '/verify_otp?resend=true';
+                }
+            });
+        });
+    </script>
 </body>
 </html>

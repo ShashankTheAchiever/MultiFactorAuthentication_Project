@@ -18,14 +18,17 @@
             <button type="submit">Login</button>
         </form>
         <p>Don't have an account? <a href="/signup">Sign up here</a></p>
-        <p><a href="/forgot_password">Forgot Password?</a></p> <!-- Add Forgot Password link -->
+        <p><a href="/forgot_password">Forgot Password?</a></p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <p class="{{ category }}">{{ message }}</p>
+                    <p class="{{ category }}" id="flash-message">{{ message }}</p>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+        {% if suspension_time_remaining %}
+            <p id="suspension-timer">Account is suspended. Remaining time: <span id="time-remaining">{{ '%.0f' | format(suspension_time_remaining) }}s</span></p>
+        {% endif %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
@@ -131,6 +134,34 @@
                 }
             },
             "retina_detect": true
+        });
+
+        // Client-side timer for suspension
+        document.addEventListener('DOMContentLoaded', function() {
+            const suspensionTimer = document.getElementById('suspension-timer');
+            const timeRemainingElement = document.getElementById('time-remaining');
+            const form = document.querySelector('form');
+            if (suspensionTimer && timeRemainingElement) {
+                let remainingTime = parseInt(timeRemainingElement.textContent);
+                form.style.pointerEvents = 'none'; // Disable form during suspension
+                form.style.opacity = '0.6';
+
+                const timer = setInterval(() => {
+                    if (remainingTime > 0) {
+                        remainingTime--;
+                        const hours = Math.floor(remainingTime / 3600);
+                        const minutes = Math.floor((remainingTime % 3600) / 60);
+                        const seconds = remainingTime % 60;
+                        timeRemainingElement.textContent = `${hours}h ${minutes}m ${seconds}s`;
+                    } else {
+                        clearInterval(timer);
+                        suspensionTimer.style.display = 'none';
+                        form.style.pointerEvents = 'auto'; // Re-enable form
+                        form.style.opacity = '1';
+                        flashMessage.style.display = 'none'; // Hide flash message
+                    }
+                }, 1000);
+            }
         });
     </script>
 </body>

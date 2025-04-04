@@ -48,7 +48,20 @@ class User(db.Model):
     totp_secret = db.Column(db.String(16))
     reset_token = db.Column(db.String(100), nullable=True)
     reset_token_expiration = db.Column(db.DateTime, nullable=True)
-    last_otp_request = db.Column(db.DateTime, nullable=True)  # New field for OTP request timestamp
+    last_otp_request = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0)  # New field for failed attempts
+    suspension_timestamp = db.Column(db.DateTime, nullable=True)  # New field for suspension time
+
+# class User(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.String(100))
+#     email = db.Column(db.String(100))
+#     phone = db.Column(db.String(15))
+#     password = db.Column(db.String(255))
+#     totp_secret = db.Column(db.String(16))
+#     reset_token = db.Column(db.String(100), nullable=True)
+#     reset_token_expiration = db.Column(db.DateTime, nullable=True)
+#     last_otp_request = db.Column(db.DateTime, nullable=True)  # New field for OTP request timestamp
 
 # Function to send OTP via WhatsApp
 def send_otp_via_whatsapp(phone_number, otp):
@@ -66,7 +79,7 @@ def generate_qr_code(provisioning_uri):
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(provisioning_uri)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="#00c4b4", back_color="transparent")
+    img = qr.make_image(fill_color="black", back_color="white")
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
@@ -215,17 +228,17 @@ def signup():
         password = generate_password_hash(request.form['password'])
         totp_secret = pyotp.random_base32()
 
-        # Check if the user already exists (to apply cooldown)
+        # Check if the user already exists (to apply cooldown or update)
         user = User.query.filter_by(email=email).first()
         if user:
-            # Check cooldown
-            cooldown_period = 60  # seconds
+            # Check cooldown for existing user
+            cooldown_period = 30  # seconds
             if user.last_otp_request:
                 time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
                 if time_since_last_request < cooldown_period:
                     remaining_time = int(cooldown_period - time_since_last_request)
                     flash(f'Please wait {remaining_time} seconds before requesting a new OTP.', 'danger')
-                    return redirect(url_for('signup'))
+                    return redirect(url_for('verify_otp'))
 
         otp_email = str(random.randint(100000, 999999))
         msg = Message('Your OTP Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
@@ -289,9 +302,134 @@ def verify_otp():
             flash('Invalid WhatsApp OTP.', 'danger')
             return redirect(url_for('verify_otp'))
 
+        # Clear session data after successful verification
+        session.pop('email', None)
+        session.pop('otp_email', None)
+        session.pop('otp_whatsapp', None)
         return redirect(url_for('login'))
 
+    # Handle resend OTP request via GET parameter
+    if request.args.get('resend'):
+        cooldown_period = 30  # seconds
+        if user.last_otp_request:
+            time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
+            if time_since_last_request < cooldown_period:
+                remaining_time = int(cooldown_period - time_since_last_request)
+                flash(f'Please wait {remaining_time} seconds before requesting a new OTP.', 'danger')
+                return redirect(url_for('verify_otp'))
+
+        # Resend OTPs
+        otp_email = str(random.randint(100000, 999999))
+        msg = Message('Your OTP Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
+        msg.body = f'Your new email OTP code is: {otp_email}'
+        try:
+            mail.send(msg)
+        except Exception as e:
+            flash('An error occurred while sending the email OTP. Please try again.', 'danger')
+            return redirect(url_for('verify_otp'))
+
+        otp_whatsapp = str(random.randint(100000, 999999))
+        try:
+            send_otp_via_whatsapp(user.phone, otp_whatsapp)
+        except Exception as e:
+            flash('An error occurred while sending the WhatsApp OTP. Please try again.', 'danger')
+            return redirect(url_for('verify_otp'))
+
+        session['otp_email'] = otp_email
+        session['otp_whatsapp'] = otp_whatsapp
+        user.last_otp_request = datetime.utcnow()
+        db.session.commit()
+        flash('New OTPs have been sent to your email and phone.', 'success')
+        return redirect(url_for('verify_otp'))
+
     return render_template('verify_otp.html')
+
+# @app.route('/signup', methods=['GET', 'POST'])
+# def signup():
+#     if request.method == 'POST':
+#         name = request.form['name']
+#         email = request.form['email']
+#         phone = request.form.get('phone')
+#         password = generate_password_hash(request.form['password'])
+#         totp_secret = pyotp.random_base32()
+
+#         # Check if the user already exists (to apply cooldown)
+#         user = User.query.filter_by(email=email).first()
+#         if user:
+#             # Check cooldown
+#             cooldown_period = 60  # seconds
+#             if user.last_otp_request:
+#                 time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
+#                 if time_since_last_request < cooldown_period:
+#                     remaining_time = int(cooldown_period - time_since_last_request)
+#                     flash(f'Please wait {remaining_time} seconds before requesting a new OTP.', 'danger')
+#                     return redirect(url_for('signup'))
+
+#         otp_email = str(random.randint(100000, 999999))
+#         msg = Message('Your OTP Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
+#         msg.body = f'Your email OTP code is: {otp_email}'
+#         try:
+#             mail.send(msg)
+#         except Exception as e:
+#             flash('An error occurred while sending the email OTP. Please try again.', 'danger')
+#             return redirect(url_for('signup'))
+
+#         otp_whatsapp = str(random.randint(100000, 999999))
+#         try:
+#             send_otp_via_whatsapp(phone, otp_whatsapp)
+#         except Exception as e:
+#             flash('An error occurred while sending the WhatsApp OTP. Please try again.', 'danger')
+#             return redirect(url_for('signup'))
+
+#         # If user doesn't exist, create a new one
+#         if not user:
+#             new_user = User(name=name, email=email, phone=phone, password=password, totp_secret=totp_secret)
+#             db.session.add(new_user)
+#         else:
+#             # Update existing user (in case they are retrying signup)
+#             user.name = name
+#             user.phone = phone
+#             user.password = password
+#             user.totp_secret = totp_secret
+
+#         # Update the last OTP request timestamp
+#         if user:
+#             user.last_otp_request = datetime.utcnow()
+#         else:
+#             new_user.last_otp_request = datetime.utcnow()
+#         db.session.commit()
+
+#         session['email'] = email
+#         session['otp_email'] = otp_email
+#         session['otp_whatsapp'] = otp_whatsapp
+#         return redirect(url_for('verify_otp'))
+
+#     return render_template('signup.html')
+
+# @app.route('/verify_otp', methods=['GET', 'POST'])
+# def verify_otp():
+#     email = session.get('email')
+#     user = User.query.filter_by(email=email).first()
+
+#     if not user:
+#         flash('User not found. Please sign up.', 'danger')
+#         return redirect(url_for('signup'))
+
+#     if request.method == 'POST':
+#         entered_email_otp = request.form['otp_email']
+#         entered_whatsapp_otp = request.form['otp_whatsapp']
+
+#         if session.get('otp_email') != entered_email_otp:
+#             flash('Invalid email OTP.', 'danger')
+#             return redirect(url_for('verify_otp'))
+
+#         if session.get('otp_whatsapp') != entered_whatsapp_otp:
+#             flash('Invalid WhatsApp OTP.', 'danger')
+#             return redirect(url_for('verify_otp'))
+
+#         return redirect(url_for('login'))
+
+#     return render_template('verify_otp.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -301,9 +439,37 @@ def login():
 
         user = User.query.filter_by(email=email).first()
 
-        if user and check_password_hash(user.password, password):
-            session['email'] = email
-            return redirect(url_for('google_auth'))
+        if user:
+            # Check if account is suspended
+            if user.suspension_timestamp and user.suspension_timestamp > datetime.utcnow():
+                time_remaining = (user.suspension_timestamp - datetime.utcnow()).total_seconds()
+                hours_remaining = int(time_remaining // 3600)
+                minutes_remaining = int((time_remaining % 3600) // 60)
+                flash(f'Account is suspended. Please wait {hours_remaining}h {minutes_remaining}m before trying again.', 'danger')
+                return render_template('login.html', suspension_time_remaining=time_remaining)
+
+            # Check password
+            if user and check_password_hash(user.password, password):
+                # Reset failed attempts and suspension on successful login
+                user.failed_login_attempts = 0
+                user.suspension_timestamp = None
+                db.session.commit()
+                session['email'] = email
+                return redirect(url_for('google_auth'))
+            else:
+                # Increment failed attempts
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= 3:
+                    # Suspend account for 24 hours
+                    user.suspension_timestamp = datetime.utcnow() + timedelta(hours=24)
+                    user.failed_login_attempts = 0  # Reset attempts after suspension
+                    db.session.commit()
+                    flash('Account suspended for 24 hours due to 3 failed login attempts.', 'danger')
+                else:
+                    remaining_attempts = 3 - user.failed_login_attempts
+                    flash(f'Invalid credentials. You have {remaining_attempts} attempts left.', 'danger')
+                db.session.commit()
+
         else:
             flash('Invalid credentials. Please try again.', 'danger')
 
