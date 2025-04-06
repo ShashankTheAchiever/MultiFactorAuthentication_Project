@@ -43,8 +43,8 @@ mail = Mail(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
-    email = db.Column(db.String(100))
-    phone = db.Column(db.String(15))
+    email = db.Column(db.String(100), unique=True)
+    phone = db.Column(db.String(15), unique=True)
     password = db.Column(db.String(255))
     totp_secret = db.Column(db.String(16))
     reset_token = db.Column(db.String(100), nullable=True)
@@ -294,8 +294,42 @@ def verify_otp():
         session.pop('otp_email', None)
         session.pop('otp_whatsapp', None)
         return jsonify({'success': True, 'message': 'OTP successfully verified', 'redirect': url_for('google_auth')})
+    
+    elif request.method == 'GET':
+        # Handle resend request
+        if request.args.get('resend') == 'true':
+            channel = request.args.get('channel')
+            cooldown_period = 30  # seconds
+            if user.last_otp_request:
+                time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
+                if time_since_last_request < cooldown_period:
+                    remaining_time = int(cooldown_period - time_since_last_request)
+                    return jsonify({'success': False, 'message': f'Please wait {remaining_time} seconds before requesting a new OTP.'})
 
-    # ... (rest of the resend logic remains unchanged)
+            new_otp = str(random.randint(100000, 999999))
+            if channel == 'email':
+                msg = Message('Your OTP Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
+                msg.body = f'Your email OTP code is: {new_otp}'
+                try:
+                    mail.send(msg)
+                    session['otp_email'] = new_otp
+                    user.last_otp_request = datetime.utcnow()
+                    db.session.commit()
+                    return jsonify({'success': True, 'message': 'New OTP sent to your email.'})
+                except Exception as e:
+                    return jsonify({'success': False, 'message': 'An error occurred while sending the email OTP.'})
+            elif channel == 'whatsapp':
+                try:
+                    send_otp_via_whatsapp(user.phone, new_otp)
+                    session['otp_whatsapp'] = new_otp
+                    user.last_otp_request = datetime.utcnow()
+                    db.session.commit()
+                    return jsonify({'success': True, 'message': 'New OTP sent to your WhatsApp.'})
+                except Exception as e:
+                    return jsonify({'success': False, 'message': 'An error occurred while sending the WhatsApp OTP.'})
+            else:
+                return jsonify({'success': False, 'message': 'Invalid channel specified.'})
+
     return render_template('verify_otp.html')
 
 @app.route('/login', methods=['GET', 'POST'])
