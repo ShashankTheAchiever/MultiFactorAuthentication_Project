@@ -6,6 +6,72 @@
     <title>Verify OTP</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for integrated resend text and timer */
+        .otp-input-container {
+            position: relative;
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 12px 15px;
+            padding-right: 100px; /* Space for the resend text/timer */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            outline: none;
+            transition: border 0.3s ease, background 0.3s ease;
+        }
+
+        .otp-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid #00c4b4;
+        }
+
+        .resend-text {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #00c4b4;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            user-select: none; /* Prevents text selection */
+        }
+
+        .resend-text:hover {
+            color: #00a69a;
+            text-decoration: underline;
+        }
+
+        .timer-text {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #cccccc;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        /* Success message style */
+        .success-message {
+            display: none;
+            color: #00c4b4;
+            background: rgba(0, 196, 180, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1rem;
+        }
+    </style>
 </head>
 <body>
     <div id="particles-js"></div>
@@ -13,12 +79,18 @@
     <div class="container">
         <h2>Verify OTP</h2>
         <p>Please enter the OTP sent to your email and WhatsApp.</p>
-        <form action="/verify_otp" method="POST">
-            <input type="text" name="otp_email" placeholder="Email OTP" required>
-            <input type="text" name="otp_whatsapp" placeholder="WhatsApp OTP" required>
-            <button type="submit">Verify</button>
-            <button type="button" id="resend-btn" disabled>Resend OTP</button>
+        <form action="/verify_otp" method="POST" id="otp-form">
+            <div class="otp-input-container">
+                <input type="text" name="otp_email" class="otp-input" placeholder="Email OTP" required>
+                <span class="resend-text" id="resend-email-text">Resend</span>
+            </div>
+            <div class="otp-input-container">
+                <input type="text" name="otp_whatsapp" class="otp-input" placeholder="WhatsApp OTP" required>
+                <span class="resend-text" id="resend-whatsapp-text">Resend</span>
+            </div>
+            <button type="submit" style="margin-top: 20px;">Verify</button>
         </form>
+        <p class="success-message" id="success-message"></p>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -133,39 +205,149 @@
             "retina_detect": true
         });
 
-        // Client-side timer for resend OTP
+        // Client-side timer and resend logic
         document.addEventListener('DOMContentLoaded', function() {
-            const resendBtn = document.getElementById('resend-btn');
+            const resendEmailText = document.getElementById('resend-email-text');
+            const resendWhatsappText = document.getElementById('resend-whatsapp-text');
             const flashMessage = document.getElementById('flash-message');
-            let remainingTime = 30; // 30-second cooldown
+            const successMessage = document.getElementById('success-message');
+            const otpForm = document.getElementById('otp-form');
+            let emailRemainingTime = 30; // 30-second cooldown
+            let whatsappRemainingTime = 30;
+            let emailTimer = null;
+            let whatsappTimer = null;
+
+            // Create timer text elements
+            const emailTimerText = document.createElement('span');
+            emailTimerText.className = 'timer-text';
+            const whatsappTimerText = document.createElement('span');
+            whatsappTimerText.className = 'timer-text';
 
             // Check if there’s a cooldown message from the server
             if (flashMessage && flashMessage.classList.contains('danger')) {
                 const match = flashMessage.textContent.match(/Please wait (\d+) seconds/);
                 if (match) {
-                    remainingTime = parseInt(match[1]);
+                    const remainingTime = parseInt(match[1]);
+                    emailRemainingTime = remainingTime;
+                    whatsappRemainingTime = remainingTime;
+                    startEmailTimer();
+                    startWhatsappTimer();
                 }
             }
 
-            // Start the timer
-            const timer = setInterval(() => {
-                if (remainingTime > 0) {
-                    remainingTime--;
-                    resendBtn.textContent = `Resend OTP (${remainingTime}s)`;
-                } else {
-                    clearInterval(timer);
-                    resendBtn.textContent = 'Resend OTP';
-                    resendBtn.disabled = false;
-                    flashMessage.style.display = 'none'; // Hide the flash message when timer ends
-                }
-            }, 1000);
-
-            // Handle resend button click
-            resendBtn.addEventListener('click', function() {
-                if (!resendBtn.disabled) {
-                    window.location.href = '/verify_otp?resend=true';
+            // Handle email resend click
+            resendEmailText.addEventListener('click', function() {
+                if (!emailTimer) {
+                    fetch('/verify_otp?resend=true&channel=email', { method: 'GET' })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                emailRemainingTime = 30;
+                                startEmailTimer();
+                                flashMessage.textContent = 'New OTP sent to your email.';
+                                flashMessage.className = 'success';
+                            } else {
+                                flashMessage.textContent = data.message || 'Failed to resend OTP.';
+                                flashMessage.className = 'danger';
+                            }
+                        })
+                        .catch(error => {
+                            flashMessage.textContent = 'An error occurred. Please try again.';
+                            flashMessage.className = 'danger';
+                            console.error('Error:', error);
+                        });
                 }
             });
+
+            // Handle WhatsApp resend click
+            resendWhatsappText.addEventListener('click', function() {
+                if (!whatsappTimer) {
+                    fetch('/verify_otp?resend=true&channel=whatsapp', { method: 'GET' })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                whatsappRemainingTime = 30;
+                                startWhatsappTimer();
+                                flashMessage.textContent = 'New OTP sent to your WhatsApp.';
+                                flashMessage.className = 'success';
+                            } else {
+                                flashMessage.textContent = data.message || 'Failed to resend OTP.';
+                                flashMessage.className = 'danger';
+                            }
+                        })
+                        .catch(error => {
+                            flashMessage.textContent = 'An error occurred. Please try again.';
+                            flashMessage.className = 'danger';
+                            console.error('Error:', error);
+                        });
+                }
+            });
+
+            // Handle form submission with redirect to Google Authenticator
+            otpForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                const formData = new FormData(this);
+                fetch('/verify_otp', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        successMessage.textContent = 'OTP successfully verified';
+                        successMessage.style.display = 'block';
+                        setTimeout(() => {
+                            window.location.href = data.redirect; // Redirect to /google_auth
+                        }, 1500); // 1.5-second delay for user feedback
+                    } else {
+                        flashMessage.textContent = data.message || 'Invalid OTPs. Please try again.';
+                        flashMessage.className = 'danger';
+                    }
+                })
+                .catch(error => {
+                    flashMessage.textContent = 'An error occurred. Please try again.';
+                    flashMessage.className = 'danger';
+                    console.error('Error:', error);
+                });
+            });
+
+            // Start email timer
+            function startEmailTimer() {
+                resendEmailText.style.display = 'none';
+                emailTimerText.textContent = `(${emailRemainingTime}s)`;
+                resendEmailText.parentNode.appendChild(emailTimerText);
+                emailTimer = setInterval(() => {
+                    emailRemainingTime--;
+                    emailTimerText.textContent = `(${emailRemainingTime}s)`;
+                    if (emailRemainingTime <= 0) {
+                        clearInterval(emailTimer);
+                        emailTimer = null;
+                        emailTimerText.remove();
+                        resendEmailText.style.display = 'inline';
+                    }
+                }, 1000);
+            }
+
+            // Start WhatsApp timer
+            function startWhatsappTimer() {
+                resendWhatsappText.style.display = 'none';
+                whatsappTimerText.textContent = `(${whatsappRemainingTime}s)`;
+                resendWhatsappText.parentNode.appendChild(whatsappTimerText);
+                whatsappTimer = setInterval(() => {
+                    whatsappRemainingTime--;
+                    whatsappTimerText.textContent = `(${whatsappRemainingTime}s)`;
+                    if (whatsappRemainingTime <= 0) {
+                        clearInterval(whatsappTimer);
+                        whatsappTimer = null;
+                        whatsappTimerText.remove();
+                        resendWhatsappText.style.display = 'inline';
+                    }
+                }, 1000);
+            }
+
+            // Initial timer start if cooldown is active
+            if (emailRemainingTime < 30) startEmailTimer();
+            if (whatsappRemainingTime < 30) startWhatsappTimer();
         });
     </script>
 </body>

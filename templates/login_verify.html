@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        .option-container {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+        .option-btn {
+            width: 48%;
+            background: #00c4b4;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+        .option-btn:hover {
+            background: #00a69a;
+            transform: translateY(-2px);
+        }
+        #otp-form {
+            display: none;
+        }
+        #method-label {
+            font-size: 1rem;
+            color: #e0e0e0;
+            margin-bottom: 10px;
+            text-align: center;
+            font-style: italic;
+            font-weight: bold;
+        }
+        #initial-instruction {
+            font-size: 1rem;
+            color: #e0e0e0;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #flash-message {
+            display: block;
+            margin-top: 10px;
+            transition: opacity 0.5s ease;
+        }
+        #flash-message.hidden {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="particles-js"></div>
+
+    <div class="container">
+        <h2>Login Verification</h2>
+        <p id="initial-instruction">Choose an option to verify your login:</p> <!-- Instruction to be removed after selection -->
+        <div class="option-container">
+            <button class="option-btn" id="whatsapp-btn">Login using WhatsApp OTP</button>
+            <button class="option-btn" id="google-auth-btn">Login using Google Authenticator</button>
+        </div>
+        <form action="/login_verify" method="POST" id="otp-form">
+            <p id="method-label"></p> <!-- Label to show the selected method -->
+            <input type="hidden" name="option" id="option-input">
+            <input type="text" name="otp" id="otp-input" placeholder="" required>
+            <button type="submit">Verify</button>
+        </form>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}" id="flash-message">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        particlesJS("particles-js", {
+            "particles": {
+                "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+                "color": {"value": "#00c4b4"},
+                "shape": {"type": "circle"},
+                "opacity": {"value": 0.5, "random": true, "anim": {"enable": true, "speed": 1, "opacity_min": 0.1, "sync": false}},
+                "size": {"value": 3, "random": true},
+                "line_linked": {"enable": true, "distance": 150, "color": "#00c4b4", "opacity": 0.4, "width": 1},
+                "move": {"enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out"}
+            },
+            "interactivity": {
+                "detect_on": "canvas",
+                "events": {"onhover": {"enable": true, "mode": "repulse"}, "onclick": {"enable": true, "mode": "push"}, "resize": true},
+                "modes": {"repulse": {"distance": 100, "duration": 0.4}, "push": {"particles_nb": 4}}
+            },
+            "retina_detect": true
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const whatsappBtn = document.getElementById('whatsapp-btn');
+            const googleAuthBtn = document.getElementById('google-auth-btn');
+            const otpForm = document.getElementById('otp-form');
+            const optionInput = document.getElementById('option-input');
+            const methodLabel = document.getElementById('method-label');
+            const initialInstruction = document.getElementById('initial-instruction');
+            const otpInput = document.getElementById('otp-input');
+            const flashMessage = document.getElementById('flash-message');
+
+            // Hide flash message after 4 seconds
+            if (flashMessage) {
+                setTimeout(() => {
+                    flashMessage.classList.add('hidden');
+                }, 4000);
+            }
+
+            whatsappBtn.addEventListener('click', function() {
+                fetch('/login_verify?send_whatsapp_otp=true', { method: 'GET' })
+                    .then(response => response.text())
+                    .then(() => {
+                        optionInput.value = 'whatsapp';
+                        methodLabel.innerHTML = '<strong><em>WhatsApp OTP</em></strong>';
+                        otpInput.placeholder = 'Enter OTP'; // Update placeholder
+                        initialInstruction.style.display = 'none'; // Remove instruction text
+                        otpForm.style.display = 'block';
+                        whatsappBtn.style.display = 'none';
+                        googleAuthBtn.style.display = 'none';
+                    })
+                    .catch(error => {
+                        flashMessage.textContent = 'Error sending OTP. Please try again.';
+                        flashMessage.className = 'danger';
+                        console.error('Error:', error);
+                    });
+            });
+
+            googleAuthBtn.addEventListener('click', function() {
+                optionInput.value = 'google_auth';
+                methodLabel.innerHTML = '<strong><em>Google Authenticator</em></strong>';
+                otpInput.placeholder = 'Enter OTP'; // Update placeholder
+                initialInstruction.style.display = 'none'; // Remove instruction text
+                otpForm.style.display = 'block';
+                whatsappBtn.style.display = 'none';
+                googleAuthBtn.style.display = 'none';
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92c0cd4498e4add7',t:'MTc0MzkzNzQzOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
