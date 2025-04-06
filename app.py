@@ -6,14 +6,14 @@ from flask_mail import Mail, Message
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import SECRET_KEY
-from flask import jsonify
 import requests
 import random
 import pyotp
 import qrcode
 import sys
 from datetime import datetime, timedelta
-import secrets  # For generating secure tokens
+import secrets
+
 sys.path.append(".")
 
 app = Flask(__name__)
@@ -43,15 +43,15 @@ mail = Mail(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
-    email = db.Column(db.String(100), unique=True)
-    phone = db.Column(db.String(15), unique=True)
+    email = db.Column(db.String(100))
+    phone = db.Column(db.String(15))
     password = db.Column(db.String(255))
     totp_secret = db.Column(db.String(16))
     reset_token = db.Column(db.String(100), nullable=True)
     reset_token_expiration = db.Column(db.DateTime, nullable=True)
     last_otp_request = db.Column(db.DateTime, nullable=True)
-    failed_login_attempts = db.Column(db.Integer, default=0)  # New field for failed attempts
-    suspension_timestamp = db.Column(db.DateTime, nullable=True)  # New field for suspension time
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    suspension_timestamp = db.Column(db.DateTime, nullable=True)
 
 # Function to send OTP via WhatsApp
 def send_otp_via_whatsapp(phone_number, otp):
@@ -173,7 +173,7 @@ def reset_password(token):
 
     return render_template('reset_password.html', token=token)
 
-# Existing Routes (unchanged)
+# Existing Routes (unchanged parts omitted for brevity)
 @app.route('/send_otp', methods=['POST'])
 def send_otp():
     data = request.get_json()
@@ -218,17 +218,11 @@ def signup():
         password = generate_password_hash(request.form['password'])
         totp_secret = pyotp.random_base32()
 
-        # Check if the user already exists (to apply cooldown or update)
-        user = User.query.filter_by(email=email).first()
-        if user:
-            # Check cooldown for existing user
-            cooldown_period = 30  # seconds
-            if user.last_otp_request:
-                time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
-                if time_since_last_request < cooldown_period:
-                    remaining_time = int(cooldown_period - time_since_last_request)
-                    flash(f'Please wait {remaining_time} seconds before requesting a new OTP.', 'danger')
-                    return redirect(url_for('verify_otp'))
+        # Check if the user already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash('User already exists. ', 'danger')
+            return redirect(url_for('signup'))
 
         otp_email = str(random.randint(100000, 999999))
         msg = Message('Your OTP Code', sender=app.config['MAIL_USERNAME'], recipients=[email])
@@ -246,22 +240,10 @@ def signup():
             flash('An error occurred while sending the WhatsApp OTP. Please try again.', 'danger')
             return redirect(url_for('signup'))
 
-        # If user doesn't exist, create a new one
-        if not user:
-            new_user = User(name=name, email=email, phone=phone, password=password, totp_secret=totp_secret)
-            db.session.add(new_user)
-        else:
-            # Update existing user (in case they are retrying signup)
-            user.name = name
-            user.phone = phone
-            user.password = password
-            user.totp_secret = totp_secret
-
-        # Update the last OTP request timestamp
-        if user:
-            user.last_otp_request = datetime.utcnow()
-        else:
-            new_user.last_otp_request = datetime.utcnow()
+        # Create a new user since email is unique
+        new_user = User(name=name, email=email, phone=phone, password=password, totp_secret=totp_secret)
+        new_user.last_otp_request = datetime.utcnow()
+        db.session.add(new_user)
         db.session.commit()
 
         session['email'] = email
@@ -350,7 +332,7 @@ def login():
                 return render_template('login.html', suspension_time_remaining=time_remaining)
 
             # Check password
-            if user and check_password_hash(user.password, password):
+            if check_password_hash(user.password, password):
                 # Reset failed attempts and suspension on successful login
                 user.failed_login_attempts = 0
                 user.suspension_timestamp = None
@@ -358,18 +340,16 @@ def login():
                 session['email'] = email
                 return redirect(url_for('login_verify'))
             else:
-                # Increment failed attempts
                 user.failed_login_attempts += 1
                 if user.failed_login_attempts >= 3:
                     user.suspension_timestamp = datetime.utcnow() + timedelta(hours=3)
-                    user.failed_login_attempts = 0  # Reset attempts after suspension
+                    user.failed_login_attempts = 0
                     db.session.commit()
                     flash('Account suspended for 3 hours due to 3 failed login attempts.', 'danger')
                 else:
                     remaining_attempts = 3 - user.failed_login_attempts
                     flash(f'Invalid credentials. You have {remaining_attempts} attempts left.', 'danger')
                 db.session.commit()
-        
         else:
             flash('User not found. Please sign up.', 'danger')
     return render_template('login.html')
@@ -397,8 +377,8 @@ def google_auth():
             return redirect(url_for('google_auth'))
 
         if totp.verify(otp_code):
-            session.pop('email', None)  # Clear email after successful Google Auth
-            return redirect(url_for('login'))
+            session.pop('email', None)
+            return redirect(url_for('success'))
         else:
             flash('Invalid Google Authenticator code.', 'danger')
 
