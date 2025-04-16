@@ -120,7 +120,7 @@
         particlesJS("particles-js", {
             "particles": {
                 "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
-                "color": {"value": "#00c4b4"},
+                "color": {"value": ["#00c4b4", "#00a69a", "#ffffff"]},
                 "shape": {"type": "circle"},
                 "opacity": {"value": 0.5, "random": true, "anim": {"enable": true, "speed": 1, "opacity_min": 0.1, "sync": false}},
                 "size": {"value": 3, "random": true},
@@ -276,6 +276,21 @@
             // Initial timer start if cooldown is active
             if (emailRemainingTime < 30) startEmailTimer();
             if (whatsappRemainingTime < 30) startWhatsappTimer();
+        });
+
+        // Handle flash messages fade out
+        document.querySelectorAll('.flash-message').forEach(message => {
+            setTimeout(() => {
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 300);
+            }, 4000);
+        });
+
+        // Input formatting for OTP fields
+        document.querySelectorAll('input[type="text"]').forEach(input => {
+            input.addEventListener('input', function(e) {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+            });
         });
     </script>
     <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92c1095a8ecdb0f1',t:'MTc0MzkzOTkwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>

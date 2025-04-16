@@ -8,27 +8,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="particles-js"></div>
+    <!-- <div id="particles-js"></div> -->
 
     <div class="container">
         <h2>Login</h2>
         <form action="/login" method="POST">
-            <input type="email" name="email" placeholder="Email Address" required>
-            <input type="password" name="password" placeholder="Password" required>
+            <input type="email" name="email" placeholder="Email Address" required autocomplete="email">
+            <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
             <button type="submit">Login</button>
         </form>
-        <p>Don't have an account? <a href="/signup">Sign up here</a></p>
-        <p><a href="/forgot_password">Forgot Password?</a></p>
+        
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <p class="{{ category }}" id="flash-message">{{ message }}</p>
+                    <div class="flash-message {{ category }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
         {% if suspension_time_remaining %}
-            <p id="suspension-timer">Account is suspended. Remaining time: <span id="time-remaining">{{ '%.0f' | format(suspension_time_remaining) }}s</span></p>
+        <div id="suspension-timer" class="flash-message danger">
+            Account suspended. Time remaining: <span id="timer"></span>
+        </div>
         {% endif %}
+        
+        <p>Don't have an account? <a href="/signup">Sign up here</a></p>
+        <p><a href="/forgot_password">Forgot Password?</a></p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
@@ -43,17 +48,13 @@
                     }
                 },
                 "color": {
-                    "value": "#00c4b4"
+                    "value": ["#00c4b4", "#00a69a", "#ffffff"]
                 },
                 "shape": {
-                    "type": "circle",
-                    "stroke": {
-                        "width": 0,
-                        "color": "#000000"
-                    }
+                    "type": "circle"
                 },
                 "opacity": {
-                    "value": 0.5,
+                    "value": 0.6,
                     "random": true,
                     "anim": {
                         "enable": true,
@@ -64,13 +65,7 @@
                 },
                 "size": {
                     "value": 3,
-                    "random": true,
-                    "anim": {
-                        "enable": false,
-                        "speed": 40,
-                        "size_min": 0.1,
-                        "sync": false
-                    }
+                    "random": true
                 },
                 "line_linked": {
                     "enable": true,
@@ -86,12 +81,7 @@
                     "random": false,
                     "straight": false,
                     "out_mode": "out",
-                    "bounce": false,
-                    "attract": {
-                        "enable": false,
-                        "rotateX": 600,
-                        "rotateY": 1200
-                    }
+                    "bounce": false
                 }
             },
             "interactivity": {
@@ -106,66 +96,40 @@
                         "mode": "push"
                     },
                     "resize": true
-                },
-                "modes": {
-                    "grab": {
-                        "distance": 400,
-                        "line_linked": {
-                            "opacity": 1
-                        }
-                    },
-                    "bubble": {
-                        "distance": 400,
-                        "size": 40,
-                        "duration": 2,
-                        "opacity": 8,
-                        "speed": 3
-                    },
-                    "repulse": {
-                        "distance": 100,
-                        "duration": 0.4
-                    },
-                    "push": {
-                        "particles_nb": 4
-                    },
-                    "remove": {
-                        "particles_nb": 2
-                    }
                 }
             },
             "retina_detect": true
         });
 
-        // Client-side timer for suspension
-        document.addEventListener('DOMContentLoaded', function() {
-            const suspensionTimer = document.getElementById('suspension-timer');
-            const timeRemainingElement = document.getElementById('time-remaining');
-            const form = document.querySelector('form');
-            const flashMessage = document.getElementById('flash-message');
-            if (suspensionTimer && timeRemainingElement) {
-                let remainingTime = parseInt(timeRemainingElement.textContent);
-                form.style.pointerEvents = 'none'; // Disable form during suspension
-                form.style.opacity = '0.6';
-
-                const timer = setInterval(() => {
-                    if (remainingTime > 0) {
-                        remainingTime--;
-                        const hours = Math.floor(remainingTime / 3600);
-                        const minutes = Math.floor((remainingTime % 3600) / 60);
-                        const seconds = remainingTime % 60;
-                        timeRemainingElement.textContent = `${hours}h ${minutes}m ${seconds}s`;
-                    } else {
-                        clearInterval(timer);
-                        suspensionTimer.style.display = 'none';
-                        form.style.pointerEvents = 'auto'; // Re-enable form
-                        form.style.opacity = '1';
-                        if (flashMessage) {
-                            flashMessage.style.display = 'none'; // Hide flash message
-                        }
-                    }
-                }, 1000);
-            }
+        // Handle flash messages fade out
+        document.querySelectorAll('.flash-message:not(#suspension-timer)').forEach(message => {
+            setTimeout(() => {
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 300);
+            }, 4000);
         });
+
+        {% if suspension_time_remaining %}
+        // Suspension timer
+        let timeRemaining = {{ suspension_time_remaining }};
+        function updateTimer() {
+            const hours = Math.floor(timeRemaining / 3600);
+            const minutes = Math.floor((timeRemaining % 3600) / 60);
+            const seconds = Math.floor(timeRemaining % 60);
+            document.getElementById('timer').textContent = 
+                `${hours}h ${minutes}m ${seconds}s`;
+            if (timeRemaining > 0) {
+                timeRemaining--;
+                setTimeout(updateTimer, 1000);
+            } else {
+                const timer = document.getElementById('suspension-timer');
+                timer.style.opacity = '0';
+                setTimeout(() => timer.remove(), 300);
+                window.location.reload(); // Refresh the page when suspension is over
+            }
+        }
+        updateTimer();
+        {% endif %}
     </script>
 </body>
 </html>

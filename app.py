@@ -21,7 +21,7 @@ app.secret_key = SECRET_KEY
 
 # UltraMSG API Credentials
 ULTRAMSG_INSTANCE_ID = "instance112532"
-API_TOKEN = "cxjaiy6vufhzvjsx"
+API_TOKEN = "qdm3lf3irjyf5255"
 ULTRAMSG_URL = f"https://api.ultramsg.com/{ULTRAMSG_INSTANCE_ID}/messages/chat"
 
 # Configure Database
@@ -215,13 +215,12 @@ def signup():
         name = request.form['name']
         email = request.form['email']
         phone = request.form.get('phone')
-        password = generate_password_hash(request.form['password'])
-        totp_secret = pyotp.random_base32()
+        password = request.form['password']
 
         # Check if the user already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            flash('User already exists. ', 'danger')
+            flash('User already exists.', 'danger')
             return redirect(url_for('signup'))
 
         otp_email = str(random.randint(100000, 999999))
@@ -240,13 +239,11 @@ def signup():
             flash('An error occurred while sending the WhatsApp OTP. Please try again.', 'danger')
             return redirect(url_for('signup'))
 
-        # Create a new user since email is unique
-        new_user = User(name=name, email=email, phone=phone, password=password, totp_secret=totp_secret)
-        new_user.last_otp_request = datetime.utcnow()
-        db.session.add(new_user)
-        db.session.commit()
-
+        # Store temporary session data for verification
+        session['name'] = name
         session['email'] = email
+        session['phone'] = phone
+        session['password'] = password
         session['otp_email'] = otp_email
         session['otp_whatsapp'] = otp_whatsapp
         return redirect(url_for('verify_otp'))
@@ -259,10 +256,7 @@ def verify_otp():
     if not email:
         return jsonify({'success': False, 'message': 'Session expired. Please sign up again.'})
 
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'success': False, 'message': 'User not found.'})
-
+    # Check if the user exists in the session instead of the database
     if request.method == 'POST':
         entered_email_otp = request.form.get('otp_email')
         entered_whatsapp_otp = request.form.get('otp_whatsapp')
@@ -276,14 +270,15 @@ def verify_otp():
         session.pop('otp_email', None)
         session.pop('otp_whatsapp', None)
         return jsonify({'success': True, 'message': 'OTP successfully verified', 'redirect': url_for('google_auth')})
-    
+
     elif request.method == 'GET':
         # Handle resend request
         if request.args.get('resend') == 'true':
             channel = request.args.get('channel')
             cooldown_period = 30  # seconds
-            if user.last_otp_request:
-                time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
+            last_otp_request = session.get('last_otp_request')
+            if last_otp_request:
+                time_since_last_request = (datetime.utcnow() - last_otp_request).total_seconds()
                 if time_since_last_request < cooldown_period:
                     remaining_time = int(cooldown_period - time_since_last_request)
                     return jsonify({'success': False, 'message': f'Please wait {remaining_time} seconds before requesting a new OTP.'})
@@ -295,17 +290,15 @@ def verify_otp():
                 try:
                     mail.send(msg)
                     session['otp_email'] = new_otp
-                    user.last_otp_request = datetime.utcnow()
-                    db.session.commit()
+                    session['last_otp_request'] = datetime.utcnow()
                     return jsonify({'success': True, 'message': 'New OTP sent to your email.'})
                 except Exception as e:
                     return jsonify({'success': False, 'message': 'An error occurred while sending the email OTP.'})
             elif channel == 'whatsapp':
                 try:
-                    send_otp_via_whatsapp(user.phone, new_otp)
+                    send_otp_via_whatsapp(session.get('phone'), new_otp)
                     session['otp_whatsapp'] = new_otp
-                    user.last_otp_request = datetime.utcnow()
-                    db.session.commit()
+                    session['last_otp_request'] = datetime.utcnow()
                     return jsonify({'success': True, 'message': 'New OTP sent to your WhatsApp.'})
                 except Exception as e:
                     return jsonify({'success': False, 'message': 'An error occurred while sending the WhatsApp OTP.'})
@@ -364,8 +357,16 @@ def google_auth():
 
     user = User.query.filter_by(email=email).first()
     if not user:
-        flash('User not found. Please sign up.', 'danger')
-        return redirect(url_for('signup'))
+        totp_secret = pyotp.random_base32()
+        user = User(
+            name=session.get('name'),
+            email=email,
+            phone=session.get('phone'),
+            password=generate_password_hash(session.get('password')),
+            totp_secret=totp_secret
+        )
+        db.session.add(user)
+        db.session.commit()
 
     totp = pyotp.TOTP(user.totp_secret)
     provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Project")
@@ -378,7 +379,11 @@ def google_auth():
 
         if totp.verify(otp_code):
             session.pop('email', None)
-            return redirect(url_for('success'))
+            session.pop('name', None)
+            session.pop('phone', None)
+            session.pop('password', None)
+            flash('User registered successfully.', 'success')
+            return redirect(url_for('login'))
         else:
             flash('Invalid Google Authenticator code.', 'danger')
 
@@ -402,47 +407,140 @@ def login_verify():
         entered_otp = request.form.get('otp')
 
         if option == 'whatsapp':
-            # Verify WhatsApp OTP
             if session.get('whatsapp_otp') == entered_otp:
                 session.pop('whatsapp_otp', None)
                 session.pop('email', None)
                 return redirect(url_for('success'))
+               
             else:
-                flash('Invalid WhatsApp OTP.', 'danger')
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid WhatsApp OTP'
+                })
 
         elif option == 'google_auth':
-            # Verify Google Authenticator OTP
             totp = pyotp.TOTP(user.totp_secret)
             if totp.verify(entered_otp):
                 session.pop('email', None)
                 return redirect(url_for('success'))
             else:
-                flash('Invalid Google Authenticator code.', 'danger')
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid Google Authenticator code'
+                })
 
     # Handle WhatsApp OTP sending
     if request.args.get('send_whatsapp_otp'):
-        # Cooldown check
         cooldown_period = 30  # seconds
         if user.last_otp_request:
             time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
             if time_since_last_request < cooldown_period:
                 remaining_time = int(cooldown_period - time_since_last_request)
-                flash(f'Please wait {remaining_time} seconds before requesting a new OTP.', 'danger')
-                return redirect(url_for('login_verify'))
+                return jsonify({
+                    'success': False,
+                    'message': f'Please wait {remaining_time} seconds before requesting a new OTP.'
+                })
 
         otp = str(random.randint(100000, 999999))
-        send_otp_via_whatsapp(user.phone, otp)
-        session['whatsapp_otp'] = otp
-        user.last_otp_request = datetime.utcnow()
-        db.session.commit()
-        flash('OTP sent to WhatsApp.', 'success')
+        try:
+            send_otp_via_whatsapp(user.phone, otp)
+            session['whatsapp_otp'] = otp
+            user.last_otp_request = datetime.utcnow()
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'OTP sent to WhatsApp'
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': 'Error sending WhatsApp OTP. Please try again.'
+            })
 
     return render_template('login_verify.html')
 
+# @app.route('/login_verify', methods=['GET', 'POST'])
+# def login_verify():
+#     email = session.get('email')
+#     if not email:
+#         flash('Session expired. Please log in again.', 'danger')
+#         return redirect(url_for('login'))
+
+#     user = User.query.filter_by(email=email).first()
+#     if not user:
+#         flash('User not found. Please sign up.', 'danger')
+#         return redirect(url_for('signup'))
+
+#     if request.method == 'POST':
+#         option = request.form.get('option')
+#         entered_otp = request.form.get('otp')
+
+#         if option == 'whatsapp':
+#             # Verify WhatsApp OTP
+#             if session.get('whatsapp_otp') == entered_otp:
+#                 session.pop('whatsapp_otp', None)
+#                 session.pop('email', None)
+#                 return jsonify({
+#                     'success': True,
+#                     'message': 'WhatsApp verification successful',
+#                     'redirect': url_for('success')
+#                 })
+#             else:
+#                 return jsonify({
+#                     'success': False,
+#                     'message': 'Invalid WhatsApp OTP'
+#                 })
+
+#         elif option == 'google_auth':
+#             # Verify Google Authenticator OTP
+#             totp = pyotp.TOTP(user.totp_secret)
+#             if totp.verify(entered_otp):
+#                 session.pop('email', None)
+#                 return jsonify({
+#                     'success': True,
+#                     'message': 'Google Authenticator verification successful',
+#                     'redirect': url_for('success')
+#                 })
+#             else:
+#                 return jsonify({
+#                     'success': False,
+#                     'message': 'Invalid Google Authenticator code'
+#                 })
+
+#     # Handle WhatsApp OTP sending
+#     if request.args.get('send_whatsapp_otp'):
+#         # Cooldown check
+#         cooldown_period = 30  # seconds
+#         if user.last_otp_request:
+#             time_since_last_request = (datetime.utcnow() - user.last_otp_request).total_seconds()
+#             if time_since_last_request < cooldown_period:
+#                 remaining_time = int(cooldown_period - time_since_last_request)
+#                 return jsonify({
+#                     'success': False,
+#                     'message': f'Please wait {remaining_time} seconds before requesting a new OTP.'
+#                 })
+
+#         otp = str(random.randint(100000, 999999))
+#         try:
+#             send_otp_via_whatsapp(user.phone, otp)
+#             session['whatsapp_otp'] = otp
+#             user.last_otp_request = datetime.utcnow()
+#             db.session.commit()
+#             return jsonify({
+#                 'success': True,
+#                 'message': 'OTP sent to WhatsApp'
+#             })
+#         except Exception as e:
+#             return jsonify({
+#                 'success': False,
+#                 'message': 'Error sending WhatsApp OTP. Please try again.'
+#             })
+
+#     return render_template('login_verify.html')
+
 @app.route('/success')
 def success():
-    return redirect("https://www.youtube.com")
-
+    return redirect("https://identityreview.com/wp-content/uploads/2021/08/multi-factor-1536x639.png")
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

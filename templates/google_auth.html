@@ -3,54 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Authenticator</title>
+    <title>Google Authenticator Setup</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div id="particles-js"></div>
+
     <div class="container">
-        <h2>Google Authenticator Setup</h2>
-        <p>Scan the QR Code with Google Authenticator App:</p>
-        <img src="{{ qr_code }}" alt="QR Code" style="width: 200px; height: 200px;">
+        <h2>Setup Google Authenticator</h2>
+        <div class="qr-container">
+            <img src="{{ qr_code }}" alt="QR Code" class="qr-code">
+        </div>
+        <div class="instructions">
+            <p>1. Open Google Authenticator on your phone</p>
+            <p>2. Tap + and scan the QR code above</p>
+            <p>3. Enter the code shown in Google Authenticator below</p>
+        </div>
         <form action="/google_auth" method="POST">
-            <input type="text" name="otp" placeholder="Enter Google Authenticator Code" required>
+            <input type="text" name="otp" placeholder="Enter Authentication Code" maxlength="6" required>
             <button type="submit">Verify</button>
         </form>
+        
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <p class="{{ category }}">{{ message }}</p>
+                    <div class="flash-message {{ category }}">{{ message }}</div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        particlesJS("particles-js", {
+            "particles": {
+                "number": {"value": 80, "density": {"enable": true, "value_area": 800}},
+                "color": {"value": ["#00c4b4", "#00a69a", "#ffffff"]},
+                "shape": {"type": "circle"},
+                "opacity": {
+                    "value": 0.6,
+                    "random": true,
+                    "anim": {"enable": true, "speed": 1, "opacity_min": 0.1, "sync": false}
+                },
+                "size": {"value": 3, "random": true},
+                "line_linked": {
+                    "enable": true,
+                    "distance": 150,
+                    "color": "#00c4b4",
+                    "opacity": 0.4,
+                    "width": 1
+                },
+                "move": {"enable": true, "speed": 2}
+            },
+            "interactivity": {
+                "detect_on": "canvas",
+                "events": {
+                    "onhover": {"enable": true, "mode": "repulse"},
+                    "onclick": {"enable": true, "mode": "push"},
+                    "resize": true
+                }
+            },
+            "retina_detect": true
+        });
+
+        // Auto format input to numbers only
+        document.querySelector('input[name="otp"]').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);
+        });
+
+        // Handle flash messages fade out
+        document.querySelectorAll('.flash-message').forEach(message => {
+            setTimeout(() => {
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 300);
+            }, 4000);
+        });
+    </script>
 </body>
 </html>
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Authenticator</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h2>Google Authenticator Setup</h2>
-        <p>Scan the QR Code with Google Authenticator App:</p>
-        <img src="{{ qr_code }}" alt="QR Code" style="width: 200px; height: 200px;">
-        <form action="/google_auth" method="POST">
-            <input type="text" name="otp" placeholder="Enter Google Authenticator Code" required>
-            <button type="submit">Verify</button>
-        </form>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <p class="{{ category }}">{{ message }}</p>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
-</body>
-</html> -->

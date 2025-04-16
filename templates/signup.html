@@ -7,26 +7,137 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        #particles-js {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .container {
+            position: relative;
+            animation: fadeIn 0.8s ease-out;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        input {
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 196, 180, 0.2);
+        }
+
+        button {
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            background: linear-gradient(45deg, #00c4b4, #00a69a);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0, 196, 180, 0.4);
+        }
+
+        button:after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+        }
+
+        button:hover:after {
+            transform: rotate(45deg) translate(50%, 50%);
+        }
+
         .flash-message {
             display: block;
-            margin-top: 10px;
-            padding: 10px;
+            margin-top: 15px;
+            padding: 12px;
             border-radius: 8px;
-            transition: opacity 0.5s ease;
+            transition: all 0.5s ease;
+            animation: slideIn 0.5s ease-out;
         }
+
         .flash-message.danger {
-            color: #e57373;
-            background: rgba(229, 115, 115, 0.1);
+            color: #ff6b61;
+            background: rgba(255, 107, 97, 0.1);
+            border-left: 4px solid #ff6b61;
         }
+
         .flash-message.success {
             color: #00c4b4;
             background: rgba(0, 196, 180, 0.1);
+            border-left: 4px solid #00c4b4;
         }
+
         .flash-message.hidden {
             opacity: 0;
+            transform: translateY(-20px);
             height: 0;
-            overflow: hidden;
             margin: 0;
+            padding: 0;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        a {
+            position: relative;
+            padding-bottom: 2px;
+        }
+
+        a:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #00c4b4;
+            transition: width 0.3s ease;
+        }
+
+        a:hover:after {
+            width: 100%;
         }
     </style>
 </head>
@@ -37,10 +148,10 @@
     <div class="container">
         <h2>Sign Up</h2>
         <form action="/signup" method="POST">
-            <input type="text" name="name" placeholder="Full Name" required>
-            <input type="email" name="email" placeholder="Email Address" required>
-            <input type="tel" name="phone" placeholder="Mobile Number" required>
-            <input type="password" name="password" placeholder="Password" required>
+            <input type="text" name="name" placeholder="Full Name" required autocomplete="name">
+            <input type="email" name="email" placeholder="Email Address" required autocomplete="email">
+            <input type="number" max="10000000000" name="phone" placeholder="Mobile Number" required autocomplete="tel">
+            <input type="password" name="password" placeholder="Password" required autocomplete="new-password">
             <button type="submit">Sign Up</button>
         </form>
         <p>Already have an account? <a href="/login">Login here</a></p>
@@ -66,17 +177,13 @@
                     }
                 },
                 "color": {
-                    "value": "#00c4b4" // Teal particles to match the theme
+                    "value": ["#00c4b4", "#00a69a", "#ffffff"]
                 },
                 "shape": {
-                    "type": "circle",
-                    "stroke": {
-                        "width": 0,
-                        "color": "#000000"
-                    }
+                    "type": "circle"
                 },
                 "opacity": {
-                    "value": 0.5,
+                    "value": 0.6,
                     "random": true,
                     "anim": {
                         "enable": true,
@@ -87,13 +194,7 @@
                 },
                 "size": {
                     "value": 3,
-                    "random": true,
-                    "anim": {
-                        "enable": false,
-                        "speed": 40,
-                        "size_min": 0.1,
-                        "sync": false
-                    }
+                    "random": true
                 },
                 "line_linked": {
                     "enable": true,
@@ -131,41 +232,42 @@
                     "resize": true
                 },
                 "modes": {
-                    "grab": {
-                        "distance": 400,
-                        "line_linked": {
-                            "opacity": 1
-                        }
-                    },
-                    "bubble": {
-                        "distance": 400,
-                        "size": 40,
-                        "duration": 2,
-                        "opacity": 8,
-                        "speed": 3
-                    },
                     "repulse": {
                         "distance": 100,
                         "duration": 0.4
                     },
                     "push": {
                         "particles_nb": 4
-                    },
-                    "remove": {
-                        "particles_nb": 2
                     }
                 }
             },
             "retina_detect": true
         });
 
-        // Hide flash message after 4 seconds
+        // Animate flash messages
         document.addEventListener('DOMContentLoaded', function() {
             const flashMessages = document.querySelectorAll('.flash-message');
             flashMessages.forEach(message => {
                 setTimeout(() => {
-                    message.classList.add('hidden');
-                }, 4000); // 4000ms = 4 seconds
+                    message.style.opacity = '0';
+                    message.style.transform = 'translateY(-20px)';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 300);
+                }, 4000);
+            });
+
+            // Add input animation
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('focus', function() {
+                    this.parentElement.classList.add('focused');
+                });
+                input.addEventListener('blur', function() {
+                    if (!this.value) {
+                        this.parentElement.classList.remove('focused');
+                    }
+                });
             });
         });
     </script>
